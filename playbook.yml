@@ -4,7 +4,6 @@
   become: yes
 
   tasks:
-
     - name: Install Node.js and Nginx using dnf5
       ansible.builtin.dnf:
         name:

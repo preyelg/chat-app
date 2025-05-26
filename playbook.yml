@@ -4,13 +4,12 @@
   become: yes
 
   tasks:
-    - name: Install Node.js and Nginx using dnf5
-      ansible.builtin.dnf:
-        name:
-          - nginx
-          - nodejs
-        state: present
-        use_backend: dnf5
+
+    - name: Install Nginx and Node.js using raw shell
+      ansible.builtin.shell: |
+        yum install -y nginx
+        curl -sL https://rpm.nodesource.com/setup_18.x | bash -
+        yum install -y nodejs
 
     - name: Enable and start Nginx service
       ansible.builtin.service:

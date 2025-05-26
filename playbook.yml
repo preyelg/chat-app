@@ -2,9 +2,10 @@
   become: yes
   tasks:
     - name: Install Node.js & Nginx
-      ansible.builtin.yum:
+      ansible.builtin.dnf:
         name: "{{ item }}"
         state: present
+        use_backend: dnf5
       loop:
         - nodejs
         - npm

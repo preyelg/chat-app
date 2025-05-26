@@ -1,0 +1,56 @@
+- hosts: chat_server
+  become: yes
+  tasks:
+    - name: Install Node.js & Nginx
+      amazon.aws.yum:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - nodejs
+        - npm
+        - nginx
+
+    - name: Copy chat app files
+      copy:
+        src: "files/{{ item }}"
+        dest: "/home/ec2-user/{{ item }}"
+        owner: ec2-user
+        mode: '0644'
+      loop:
+        - app.js
+        - package.json
+        - index.html
+
+    - name: Install Node.js dependencies
+      shell: |
+        cd /home/ec2-user
+        npm install
+
+    - name: Configure Nginx reverse proxy
+      blockinfile:
+        path: /etc/nginx/conf.d/chat.conf
+        create: yes
+        block: |
+          server {
+              listen 80;
+              server_name _;
+
+              location / {
+                  proxy_pass http://localhost:3000;
+                  proxy_http_version 1.1;
+                  proxy_set_header Upgrade $http_upgrade;
+                  proxy_set_header Connection 'upgrade';
+                  proxy_set_header Host $host;
+                  proxy_cache_bypass $http_upgrade;
+              }
+          }
+
+    - name: Start Nginx
+      service:
+        name: nginx
+        state: restarted
+        enabled: yes
+
+    - name: Start chat app in background
+      shell: |
+        nohup node /home/ec2-user/app.js > /dev/null 2>&1 &

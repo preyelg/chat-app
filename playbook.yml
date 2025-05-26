@@ -4,13 +4,18 @@
   become: yes
 
   tasks:
-    - name: Install Node.js and Nginx using dnf5
-      ansible.builtin.dnf:
+
+    - name: Install EPEL repository
+      ansible.builtin.yum:
+        name: epel-release
+        state: present
+
+    - name: Install Node.js and Nginx
+      ansible.builtin.yum:
         name:
           - nginx
           - nodejs
         state: present
-        use_backend: dnf5
 
     - name: Enable and start Nginx service
       ansible.builtin.service:

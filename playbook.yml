@@ -5,13 +5,23 @@
 
   tasks:
 
-    - name: Install Nginx and Node.js using raw shell
-      ansible.builtin.shell: |
-        yum install -y nginx
-        curl -sL https://rpm.nodesource.com/setup_18.x | bash -
-        yum install -y nodejs
+    - name: Enable nginx via amazon-linux-extras
+      ansible.builtin.command: amazon-linux-extras enable nginx1
 
-    - name: Enable and start Nginx service
+    - name: Enable nodejs via amazon-linux-extras
+      ansible.builtin.command: amazon-linux-extras enable nodejs16
+
+    - name: Clean yum metadata
+      ansible.builtin.command: yum clean metadata
+
+    - name: Install Node.js and Nginx via yum
+      ansible.builtin.yum:
+        name:
+          - nginx
+          - nodejs
+        state: present
+
+    - name: Enable and start Nginx
       ansible.builtin.service:
         name: nginx
         state: started

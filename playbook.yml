@@ -8,8 +8,8 @@
     - name: Enable nginx via amazon-linux-extras
       ansible.builtin.command: amazon-linux-extras enable nginx1
 
-    - name: Enable nodejs via amazon-linux-extras
-      ansible.builtin.command: amazon-linux-extras enable nodejs16
+    - name: Enable nodejs14 via amazon-linux-extras
+      ansible.builtin.command: amazon-linux-extras enable nodejs14
 
     - name: Clean yum metadata
       ansible.builtin.command: yum clean metadata

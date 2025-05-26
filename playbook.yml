@@ -11,15 +11,16 @@
     - name: Clean yum metadata
       ansible.builtin.command: yum clean metadata
 
-    - name: Install Nginx via yum
-      ansible.builtin.yum:
+    - name: Install Nginx via dnf with dnf5 backend
+      ansible.builtin.dnf:
         name: nginx
         state: present
+        use_backend: dnf5
 
-    - name: Install Node.js 18 from NodeSource (safe method)
+    - name: Install Node.js 18 from NodeSource (shell)
       ansible.builtin.shell: |
         curl -fsSL https://rpm.nodesource.com/setup_18.x | bash -
-        yum install -y nodejs
+        dnf install -y nodejs
       args:
         executable: /bin/bash
 

@@ -2,7 +2,7 @@
   become: yes
   tasks:
     - name: Install Node.js & Nginx
-      amazon.aws.yum:
+      ansible.builtin.yum:
         name: "{{ item }}"
         state: present
       loop:

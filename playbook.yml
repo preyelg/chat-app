@@ -4,21 +4,13 @@
   become: yes
 
   tasks:
-
-    - name: Enable Node.js 14 through Amazon Linux Extras
-      ansible.builtin.command: amazon-linux-extras enable nodejs14
-      args:
-        creates: /etc/yum.repos.d/amzn2-extras.repo
-
-    - name: Clean yum metadata
-      ansible.builtin.command: yum clean metadata
-
-    - name: Install Node.js and Nginx
-      ansible.builtin.yum:
+    - name: Install Node.js and Nginx using dnf5
+      ansible.builtin.dnf:
         name:
           - nginx
           - nodejs
         state: present
+        use_backend: dnf5
 
     - name: Enable and start Nginx service
       ansible.builtin.service:

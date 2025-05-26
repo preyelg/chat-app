@@ -1,26 +1,29 @@
 ---
-- name: Setup Chat App Server (Manual Node.js install)
+- name: Setup Chat App Server (Raw Shell Fallback)
   hosts: chat_server
   become: yes
 
   tasks:
 
     - name: Enable nginx1 via amazon-linux-extras
-      ansible.builtin.command: amazon-linux-extras enable nginx1
+      ansible.builtin.shell: amazon-linux-extras enable nginx1
+      args:
+        executable: /bin/bash
 
     - name: Clean yum metadata
-      ansible.builtin.command: yum clean metadata
+      ansible.builtin.shell: yum clean metadata
+      args:
+        executable: /bin/bash
 
-    - name: Install Nginx via dnf with dnf5 backend
-      ansible.builtin.dnf:
-        name: nginx
-        state: present
-        use_backend: dnf5
+    - name: Install Nginx
+      ansible.builtin.shell: yum install -y nginx
+      args:
+        executable: /bin/bash
 
-    - name: Install Node.js 18 from NodeSource (shell)
+    - name: Install Node.js 18 from NodeSource
       ansible.builtin.shell: |
         curl -fsSL https://rpm.nodesource.com/setup_18.x | bash -
-        dnf install -y nodejs
+        yum install -y nodejs
       args:
         executable: /bin/bash
 

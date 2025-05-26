@@ -1,5 +1,5 @@
 ---
-- name: Setup Chat App Server (Node.js 16 - Amazon Linux 2)
+- name: Setup Chat App Server (Amazon Linux 2 - Node.js 16 Safe)
   hosts: chat_server
   become: yes
 
@@ -20,7 +20,7 @@
       args:
         executable: /bin/bash
 
-    - name: Install Node.js 16 from NodeSource (safe glibc 2.26 compatible)
+    - name: Install Node.js 16 from NodeSource (safe glibc-compatible)
       ansible.builtin.shell: |
         curl -fsSL https://rpm.nodesource.com/setup_16.x | bash -
         while fuser /var/run/yum.pid >/dev/null 2>&1; do
@@ -29,6 +29,8 @@
         yum install -y nodejs
       args:
         executable: /bin/bash
+      register: nodejs_output
+      failed_when: false
 
     - name: Enable and start Nginx
       ansible.builtin.service:

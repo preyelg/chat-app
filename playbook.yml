@@ -1,5 +1,5 @@
 ---
-- name: Setup Chat App Server (Raw Shell + Lock Handling)
+- name: Setup Chat App Server (Node.js 16 - Amazon Linux 2)
   hosts: chat_server
   become: yes
 
@@ -20,9 +20,9 @@
       args:
         executable: /bin/bash
 
-    - name: Install Node.js 18 from NodeSource (safe with yum lock wait)
+    - name: Install Node.js 16 from NodeSource (safe glibc 2.26 compatible)
       ansible.builtin.shell: |
-        curl -fsSL https://rpm.nodesource.com/setup_18.x | bash -
+        curl -fsSL https://rpm.nodesource.com/setup_16.x | bash -
         while fuser /var/run/yum.pid >/dev/null 2>&1; do
           echo "Waiting for yum lock..."; sleep 3;
         done

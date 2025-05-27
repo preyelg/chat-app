@@ -20,9 +20,9 @@ pipeline {
 
         stage('Deploy with Ansible') {
             steps {
-                bat ...
-                wsl 'ansible-playbook -i inventory playbook.yml'
-                ...
+                bat '''
+                    wsl ansible-playbook -i /mnt/c/Users/Ladei/OneDrive/Desktop/chat-app/inventory /mnt/c/Users/Ladei/OneDrive/Desktop/chat-app/playbook.yml
+                '''
             }
         }
     }

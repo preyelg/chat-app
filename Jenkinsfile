@@ -20,7 +20,9 @@ pipeline {
 
         stage('Deploy with Ansible') {
             steps {
-                bat 'ansible-playbook -i inventory playbook.yml'
+                bat ...
+                wsl 'ansible-playbook -i inventory playbook.yml'
+                ...
             }
         }
     }

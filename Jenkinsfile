@@ -14,13 +14,13 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                sh 'npm install'
+                bat 'npm install'
             }
         }
 
         stage('Deploy with Ansible') {
             steps {
-                sh 'ansible-playbook -i inventory playbook.yml'
+                bat 'ansible-playbook -i inventory playbook.yml'
             }
         }
     }

@@ -2,10 +2,8 @@ pipeline {
     agent any
 
     environment {
-        // Disable host key checking to avoid SSH prompts
         ANSIBLE_HOST_KEY_CHECKING = 'False'
-        // Ensure npm and ansible are found in PATH
-        PATH = "/usr/bin:/usr/local/bin:$PATH"
+        PATH = "/usr/local/bin:/usr/bin:/bin:$PATH"
     }
 
     stages {
@@ -31,11 +29,11 @@ pipeline {
     }
 
     post {
-        failure {
-            echo '❌ Build failed. Check the logs above for details.'
-        }
         success {
-            echo '✅ Build completed successfully!'
+            echo '✅ Build and deployment completed!'
+        }
+        failure {
+            echo '❌ Build failed. Check above for error details.'
         }
     }
 }

@@ -35,6 +35,11 @@
     - name: Gather facts with new Python
       setup:
 
+    - name: Ensure rsync is installed on EC2
+      ansible.builtin.package:
+        name: rsync
+        state: present
+
     - name: Enable nginx1 via amazon-linux-extras
       ansible.builtin.shell: amazon-linux-extras enable nginx1 || true
       args:
@@ -81,17 +86,16 @@
         group: ec2-user
         mode: '0755'
 
-    - name: Copy Node.js app from control node to EC2 (excluding node_modules)
-      ansible.builtin.copy:
+    - name: Sync Node.js app to EC2 (excluding node_modules)
+      ansible.posix.synchronize:
         src: ./files/
         dest: /home/ec2-user/chat-app/files/
-        owner: ec2-user
-        group: ec2-user
-        mode: '0755'
-        exclude:
-          - node_modules
-          - .git
-          - .vscode
+        archive: yes
+        delete: no
+        rsync_opts:
+          - "--exclude=node_modules"
+          - "--exclude=.git"
+          - "--exclude=.vscode"
 
     - name: Install Node.js dependencies on EC2
       ansible.builtin.shell: |

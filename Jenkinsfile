@@ -9,7 +9,7 @@ pipeline {
   stages {
     stage('Clone Repository') {
       steps {
-        git branch: 'deployment-3', url: 'https://github.com/preyelg/chat-app.git'
+        git branch: 'deployment-4', url: 'https://github.com/preyelg/chat-app.git'
       }
     }
 

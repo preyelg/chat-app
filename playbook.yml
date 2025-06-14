@@ -1,47 +1,60 @@
 ---
-- name: Setup Chat App Server (Amazon Linux 2 - Node.js 16, Python 3.11, PM2, Logs)
+- name: Setup Chat App Server (Amazon Linux 2/2023 - Node.js 16, Python 3.11, PM2, Logs)
   hosts: chat_server
   become: yes
   gather_facts: no
 
+  collections:
+    - ansible.posix
+
   pre_tasks:
-    - name: Install Python 3.11 from source
-      raw: |
-        sudo yum groupinstall "Development Tools" -y
-        sudo yum install -y gcc openssl-devel bzip2-devel libffi-devel wget make zlib-devel xz-devel -y
-        cd /usr/src
-        sudo rm -rf Python-3.11.9*
-        sudo wget https://www.python.org/ftp/python/3.11.9/Python-3.11.9.tgz
-        sudo tar xzf Python-3.11.9.tgz
-        cd Python-3.11.9
-        sudo ./configure --enable-optimizations
-        sudo make -j$(nproc)
-        sudo make altinstall
-        sudo alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.11 1
-        sudo alternatives --set python3 /usr/local/bin/python3.11
-        /usr/local/bin/python3.11 --version
-        /usr/local/bin/python3.11 -c "import encodings"
+    - name: Detect OS version
+      ansible.builtin.shell: cat /etc/os-release
+      register: os_release
+      changed_when: false
+
+    - name: Install Python 3.11 via package manager
+      block:
+        - name: Amazon Linux 2023 - install with dnf
+          ansible.builtin.shell: |
+            dnf install -y python3.11 python3.11-pip
+            alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
+            python3 --version
+          when: '"Amazon Linux 2023" in os_release.stdout'
+
+        - name: Amazon Linux 2 - install via IUS repo
+          ansible.builtin.shell: |
+            yum install -y https://repo.ius.io/ius-release-el7.rpm
+            yum install -y python311 python311-pip
+            alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
+            python3 --version
+          when: '"Amazon Linux 2" in os_release.stdout'
 
     - name: Set Ansible to use Python 3.11
       set_fact:
-        ansible_python_interpreter: /usr/local/bin/python3.11
+        ansible_python_interpreter: /usr/bin/python3.11
 
   tasks:
     - name: Gather facts with new Python
       setup:
 
+    - name: Ensure rsync is installed on EC2
+      ansible.builtin.package:
+        name: rsync
+        state: present
+
     - name: Enable nginx1 via amazon-linux-extras
-      ansible.builtin.shell: amazon-linux-extras enable nginx1
+      ansible.builtin.shell: amazon-linux-extras enable nginx1 || true
       args:
         executable: /bin/bash
 
     - name: Clean yum metadata
-      ansible.builtin.shell: yum clean metadata
+      ansible.builtin.shell: yum clean metadata || true
       args:
         executable: /bin/bash
 
     - name: Install Nginx
-      ansible.builtin.shell: yum install -y nginx
+      ansible.builtin.shell: yum install -y nginx || dnf install -y nginx
       args:
         executable: /bin/bash
 
@@ -51,7 +64,7 @@
         while fuser /var/run/yum.pid >/dev/null 2>&1; do
           echo "Waiting for yum lock..."; sleep 3;
         done
-        yum install -y nodejs
+        yum install -y nodejs || dnf install -y nodejs
       args:
         executable: /bin/bash
       register: nodejs_output
@@ -76,17 +89,16 @@
         group: ec2-user
         mode: '0755'
 
-    - name: Copy Node.js app from control node to EC2 (excluding node_modules)
-      ansible.builtin.copy:
+    - name: Sync Node.js app to EC2 (excluding node_modules)
+      ansible.posix.synchronize:
         src: ./files/
         dest: /home/ec2-user/chat-app/files/
-        owner: ec2-user
-        group: ec2-user
-        mode: '0755'
-        exclude:
-          - node_modules
-          - .git
-          - .vscode
+        archive: yes
+        delete: no
+        rsync_opts:
+          - "--exclude=node_modules"
+          - "--exclude=.git"
+          - "--exclude=.vscode"
 
     - name: Install Node.js dependencies on EC2
       ansible.builtin.shell: |

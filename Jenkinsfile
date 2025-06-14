@@ -15,14 +15,16 @@ pipeline {
 
         stage('Install Node.js Dependencies') {
             steps {
-                echo 'Installing npm packages...'
-                sh 'npm install'
+                echo '📦 Installing npm packages...'
+                dir('files') {
+                    sh 'npm install'
+                }
             }
         }
 
         stage('Run Ansible Playbook') {
             steps {
-                echo 'Running Ansible deployment...'
+                echo '🛠️ Running Ansible deployment...'
                 sh 'ansible-playbook -i inventory playbook.yml'
             }
         }

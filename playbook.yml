@@ -23,7 +23,7 @@
         alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.11 1
         alternatives --set python3 /usr/local/bin/python3.11
 
-    - name: Tell Ansible to use newly installed Python 3.11
+    - name: Switch Ansible to use Python 3.11
       set_fact:
         ansible_python_interpreter: /usr/local/bin/python3.11
 
@@ -79,7 +79,7 @@
 
     - name: Install rsync via shell
       shell: yum install -y rsync
-      args: 
+      args:
         executable: /bin/bash
 
     - name: Copy Node.js app to EC2 (fast rsync)
@@ -91,11 +91,11 @@
           - "--exclude=.git"
           - "--exclude=.vscode"
         archive: yes
-        delete: no
         recursive: yes
         compress: yes
         times: yes
       delegate_to: localhost
+      become: false
 
     - name: Install Node.js dependencies
       shell: |
@@ -114,7 +114,7 @@
       args:
         executable: /bin/bash
 
-    - name: Configure PM2 to auto-start on boot
+    - name: Configure PM2 to auto-start on system boot
       shell: |
         pm2 startup systemd -u ec2-user --hp /home/ec2-user
         pm2 save

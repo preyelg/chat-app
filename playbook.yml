@@ -1,114 +1,111 @@
 ---
-- name: Setup Chat App Server (Amazon Linux 2/2023 - Node.js 16, Python 3.11, PM2, Logs)
+- name: Setup Chat App Server (Amazon Linux 2 - Node.js 16, Python 3.11, PM2, Logs)
   hosts: chat_server
   become: yes
   gather_facts: no
 
-  collections:
-    - ansible.posix
-
   pre_tasks:
-    - name: Detect OS version
-      ansible.builtin.shell: cat /etc/os-release
-      register: os_release
-      changed_when: false
+    - name: Install build dependencies (raw)
+      raw: |
+        yum groupinstall -y "Development Tools"
+        yum install -y gcc openssl-devel bzip2-devel libffi-devel wget make zlib-devel xz-devel rsync
 
-    - name: Install Python 3.11 via package manager
-      block:
-        - name: Amazon Linux 2023 - install with dnf
-          ansible.builtin.shell: |
-            dnf install -y python3.11 python3.11-pip
-            alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
-            python3 --version
-          when: '"Amazon Linux 2023" in os_release.stdout'
+    - name: Install Python 3.11 from source (raw)
+      raw: |
+        cd /usr/src
+        rm -rf Python-3.11.9*
+        wget https://www.python.org/ftp/python/3.11.9/Python-3.11.9.tgz
+        tar xzf Python-3.11.9.tgz
+        cd Python-3.11.9
+        ./configure --enable-optimizations
+        make -j$(nproc)
+        make altinstall
+        alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.11 1
+        alternatives --set python3 /usr/local/bin/python3.11
 
-        - name: Amazon Linux 2 - install via IUS repo
-          ansible.builtin.shell: |
-            yum install -y https://repo.ius.io/ius-release-el7.rpm
-            yum install -y python311 python311-pip
-            alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
-            python3 --version
-          when: '"Amazon Linux 2" in os_release.stdout'
-
-    - name: Set Ansible to use Python 3.11
+    - name: Tell Ansible to use newly installed Python 3.11
       set_fact:
-        ansible_python_interpreter: /usr/bin/python3.11
+        ansible_python_interpreter: /usr/local/bin/python3.11
 
   tasks:
-    - name: Gather facts with new Python
+    - name: Gather facts using new Python
       setup:
 
-    - name: Ensure rsync is installed on EC2
-      ansible.builtin.package:
-        name: rsync
-        state: present
-
     - name: Enable nginx1 via amazon-linux-extras
-      ansible.builtin.shell: amazon-linux-extras enable nginx1 || true
+      shell: amazon-linux-extras enable nginx1
       args:
         executable: /bin/bash
 
     - name: Clean yum metadata
-      ansible.builtin.shell: yum clean metadata || true
+      shell: yum clean metadata
       args:
         executable: /bin/bash
 
     - name: Install Nginx
-      ansible.builtin.shell: yum install -y nginx || dnf install -y nginx
+      shell: yum install -y nginx
       args:
         executable: /bin/bash
 
     - name: Install Node.js 16 from NodeSource
-      ansible.builtin.shell: |
+      shell: |
         curl -fsSL https://rpm.nodesource.com/setup_16.x | bash -
         while fuser /var/run/yum.pid >/dev/null 2>&1; do
           echo "Waiting for yum lock..."; sleep 3;
         done
-        yum install -y nodejs || dnf install -y nodejs
+        yum install -y nodejs
       args:
         executable: /bin/bash
       register: nodejs_output
       failed_when: false
 
     - name: Ensure npm is installed
-      ansible.builtin.shell: npm -v
+      shell: npm -v
       register: npm_check
       failed_when: npm_check.rc != 0
       changed_when: false
 
-    - name: Install pm2 globally for managing Node.js apps
-      ansible.builtin.shell: npm install -g pm2
+    - name: Install pm2 globally
+      shell: npm install -g pm2
       args:
         executable: /bin/bash
 
     - name: Create PM2 log directory
-      ansible.builtin.file:
+      file:
         path: /var/log/pm2
         state: directory
         owner: ec2-user
         group: ec2-user
         mode: '0755'
 
-    - name: Sync Node.js app to EC2 (excluding node_modules)
+    - name: Install rsync via shell
+      shell: yum install -y rsync
+      args: 
+        executable: /bin/bash
+
+    - name: Copy Node.js app to EC2 (fast rsync)
       ansible.posix.synchronize:
         src: ./files/
         dest: /home/ec2-user/chat-app/files/
-        archive: yes
-        delete: no
         rsync_opts:
           - "--exclude=node_modules"
           - "--exclude=.git"
           - "--exclude=.vscode"
+        archive: yes
+        delete: no
+        recursive: yes
+        compress: yes
+        times: yes
+      delegate_to: localhost
 
-    - name: Install Node.js dependencies on EC2
-      ansible.builtin.shell: |
+    - name: Install Node.js dependencies
+      shell: |
         cd /home/ec2-user/chat-app/files
         npm install
       args:
         executable: /bin/bash
 
-    - name: Start Node.js app with PM2 and log to custom paths
-      ansible.builtin.shell: |
+    - name: Start Node.js app with PM2
+      shell: |
         cd /home/ec2-user/chat-app/files
         pm2 delete chat-app || true
         pm2 start app.js --name chat-app \
@@ -117,15 +114,15 @@
       args:
         executable: /bin/bash
 
-    - name: Configure pm2 to auto-start on system boot
-      ansible.builtin.shell: |
+    - name: Configure PM2 to auto-start on boot
+      shell: |
         pm2 startup systemd -u ec2-user --hp /home/ec2-user
         pm2 save
       args:
         executable: /bin/bash
 
     - name: Enable and start Nginx
-      ansible.builtin.service:
+      service:
         name: nginx
         state: started
         enabled: yes

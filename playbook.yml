@@ -1,11 +1,11 @@
 ---
-- name: Setup Chat App Server (Amazon Linux 2 - Node.js 16 + Python 3.11)
+- name: Setup Chat App Server (Amazon Linux 2 - Node.js 16, Python 3.11, PM2, Logs)
   hosts: chat_server
   become: yes
-  gather_facts: no  # Important! Prevents failure due to old Python
+  gather_facts: no
 
   pre_tasks:
-    - name: Install Python 3.11 (bootstrap via raw)
+    - name: Install Python 3.11 from source
       raw: |
         sudo yum groupinstall "Development Tools" -y
         sudo yum install -y gcc openssl-devel bzip2-devel libffi-devel wget make zlib-devel -y
@@ -18,7 +18,7 @@
         sudo alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.11 1
         sudo alternatives --set python3 /usr/local/bin/python3.11
 
-    - name: Set new Ansible Python interpreter
+    - name: Set Ansible to use Python 3.11
       set_fact:
         ansible_python_interpreter: /usr/local/bin/python3.11
 
@@ -52,6 +52,42 @@
         executable: /bin/bash
       register: nodejs_output
       failed_when: false
+
+    - name: Ensure npm is installed
+      ansible.builtin.shell: npm -v
+      register: npm_check
+      failed_when: npm_check.rc != 0
+      changed_when: false
+
+    - name: Install pm2 globally for managing Node.js apps
+      ansible.builtin.shell: npm install -g pm2
+      args:
+        executable: /bin/bash
+
+    - name: Create PM2 log directory
+      ansible.builtin.file:
+        path: /var/log/pm2
+        state: directory
+        owner: ec2-user
+        group: ec2-user
+        mode: '0755'
+
+    - name: Start Node.js app with PM2 and log to custom paths
+      ansible.builtin.shell: |
+        cd /home/ec2-user/chat-app/files
+        pm2 delete chat-app || true
+        pm2 start app.js --name chat-app \
+          --output /var/log/pm2/chat-app.out.log \
+          --error /var/log/pm2/chat-app.err.log
+      args:
+        executable: /bin/bash
+
+    - name: Configure pm2 to auto-start on system boot
+      ansible.builtin.shell: |
+        pm2 startup systemd -u ec2-user --hp /home/ec2-user
+        pm2 save
+      args:
+        executable: /bin/bash
 
     - name: Enable and start Nginx
       ansible.builtin.service:

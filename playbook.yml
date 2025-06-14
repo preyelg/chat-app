@@ -4,6 +4,9 @@
   become: yes
   gather_facts: no
 
+  collections:
+    - ansible.posix
+
   pre_tasks:
     - name: Detect OS version
       ansible.builtin.shell: cat /etc/os-release

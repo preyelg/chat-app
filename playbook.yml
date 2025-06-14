@@ -4,6 +4,9 @@
   become: yes
   gather_facts: no
 
+  vars:
+    app_path: /home/ec2-user/chat-app/files
+
   pre_tasks:
     - name: Install build dependencies (raw)
       raw: |
@@ -46,6 +49,25 @@
       args:
         executable: /bin/bash
 
+    - name: Configure NGINX reverse proxy for chat app
+      copy:
+        dest: /etc/nginx/conf.d/chat-app.conf
+        content: |
+          server {
+              listen 80;
+              server_name _;
+
+              location / {
+                  proxy_pass http://localhost:3000;
+                  proxy_http_version 1.1;
+                  proxy_set_header Upgrade $http_upgrade;
+                  proxy_set_header Connection 'upgrade';
+                  proxy_set_header Host $host;
+                  proxy_cache_bypass $http_upgrade;
+              }
+          }
+      notify: Reload NGINX
+
     - name: Install Node.js 16 from NodeSource
       shell: |
         curl -fsSL https://rpm.nodesource.com/setup_16.x | bash -
@@ -82,31 +104,40 @@
       args:
         executable: /bin/bash
 
+    - name: Ensure app_path exists
+      file:
+        path: "{{ app_path }}"
+        state: directory
+        owner: ec2-user
+        group: ec2-user
+        mode: '0755'
+
     - name: Copy Node.js app to EC2 (fast rsync)
       ansible.posix.synchronize:
         src: ./files/
-        dest: /home/ec2-user/chat-app/files/
+        dest: "{{ app_path }}"
+        archive: yes
+        recursive: yes
+        compress: yes
         rsync_opts:
           - "--exclude=node_modules"
           - "--exclude=.git"
           - "--exclude=.vscode"
-        archive: yes
-        recursive: yes
-        compress: yes
-        times: yes
+        rsync_path: "sudo rsync"
+        mode: push
       delegate_to: localhost
       become: false
 
     - name: Install Node.js dependencies
       shell: |
-        cd /home/ec2-user/chat-app/files
+        cd {{ app_path }}
         npm install
       args:
         executable: /bin/bash
 
     - name: Start Node.js app with PM2
       shell: |
-        cd /home/ec2-user/chat-app/files
+        cd {{ app_path }}
         pm2 delete chat-app || true
         pm2 start app.js --name chat-app \
           --output /var/log/pm2/chat-app.out.log \
@@ -121,8 +152,14 @@
       args:
         executable: /bin/bash
 
-    - name: Enable and start Nginx
+    - name: Enable and start NGINX
       service:
         name: nginx
         state: started
         enabled: yes
+
+  handlers:
+    - name: Reload NGINX
+      service:
+        name: nginx
+        state: reloaded

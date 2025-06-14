@@ -1,9 +1,30 @@
 ---
-- name: Setup Chat App Server (Amazon Linux 2 - Node.js 16 Safe)
+- name: Setup Chat App Server (Amazon Linux 2 - Node.js 16 + Python 3.11)
   hosts: chat_server
   become: yes
+  gather_facts: no  # Important! Prevents failure due to old Python
+
+  pre_tasks:
+    - name: Install Python 3.11 (bootstrap via raw)
+      raw: |
+        sudo yum groupinstall "Development Tools" -y
+        sudo yum install -y gcc openssl-devel bzip2-devel libffi-devel wget make zlib-devel -y
+        cd /usr/src
+        sudo wget https://www.python.org/ftp/python/3.11.9/Python-3.11.9.tgz
+        sudo tar xzf Python-3.11.9.tgz
+        cd Python-3.11.9
+        sudo ./configure --enable-optimizations
+        sudo make altinstall
+        sudo alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.11 1
+        sudo alternatives --set python3 /usr/local/bin/python3.11
+
+    - name: Set new Ansible Python interpreter
+      set_fact:
+        ansible_python_interpreter: /usr/local/bin/python3.11
 
   tasks:
+    - name: Gather facts with new Python
+      setup:
 
     - name: Enable nginx1 via amazon-linux-extras
       ansible.builtin.shell: amazon-linux-extras enable nginx1
@@ -20,7 +41,7 @@
       args:
         executable: /bin/bash
 
-    - name: Install Node.js 16 from NodeSource (safe glibc-compatible)
+    - name: Install Node.js 16 from NodeSource
       ansible.builtin.shell: |
         curl -fsSL https://rpm.nodesource.com/setup_16.x | bash -
         while fuser /var/run/yum.pid >/dev/null 2>&1; do

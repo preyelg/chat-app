@@ -76,13 +76,24 @@
         group: ec2-user
         mode: '0755'
 
-    - name: Copy Node.js app from control node to EC2
+    - name: Copy Node.js app from control node to EC2 (excluding node_modules)
       ansible.builtin.copy:
         src: ./files/
         dest: /home/ec2-user/chat-app/files/
         owner: ec2-user
         group: ec2-user
         mode: '0755'
+        exclude:
+          - node_modules
+          - .git
+          - .vscode
+
+    - name: Install Node.js dependencies on EC2
+      ansible.builtin.shell: |
+        cd /home/ec2-user/chat-app/files
+        npm install
+      args:
+        executable: /bin/bash
 
     - name: Start Node.js app with PM2 and log to custom paths
       ansible.builtin.shell: |

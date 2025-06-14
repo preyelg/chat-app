@@ -1,39 +1,56 @@
----
-- name: Setup Chat App Server (Amazon Linux 2 - Node.js 16 Safe)
-  hosts: chat_server
+- hosts: chat_server
   become: yes
-
   tasks:
+    - name: Install Node.js & Nginx
+      amazon.aws.yum:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - nodejs
+        - npm
+        - nginx
 
-    - name: Enable nginx1 via amazon-linux-extras
-      ansible.builtin.shell: amazon-linux-extras enable nginx1
-      args:
-        executable: /bin/bash
+    - name: Copy chat app files
+      copy:
+        src: "files/{{ item }}"
+        dest: "/home/ec2-user/{{ item }}"
+        owner: ec2-user
+        mode: '0644'
+      loop:
+        - app.js
+        - package.json
+        - index.html
 
-    - name: Clean yum metadata
-      ansible.builtin.shell: yum clean metadata
-      args:
-        executable: /bin/bash
+    - name: Install Node.js dependencies
+      shell: |
+        cd /home/ec2-user
+        npm install
 
-    - name: Install Nginx
-      ansible.builtin.shell: yum install -y nginx
-      args:
-        executable: /bin/bash
+    - name: Configure Nginx reverse proxy
+      blockinfile:
+        path: /etc/nginx/conf.d/chat.conf
+        create: yes
+        block: |
+          server {
+              listen 80;
+              server_name _;
 
-    - name: Install Node.js 16 from NodeSource (safe glibc-compatible)
-      ansible.builtin.shell: |
-        curl -fsSL https://rpm.nodesource.com/setup_16.x | bash -
-        while fuser /var/run/yum.pid >/dev/null 2>&1; do
-          echo "Waiting for yum lock..."; sleep 3;
-        done
-        yum install -y nodejs
-      args:
-        executable: /bin/bash
-      register: nodejs_output
-      failed_when: false
+              location / {
+                  proxy_pass http://localhost:3000;
+                  proxy_http_version 1.1;
+                  proxy_set_header Upgrade $http_upgrade;
+                  proxy_set_header Connection 'upgrade';
+                  proxy_set_header Host $host;
+                  proxy_cache_bypass $http_upgrade;
+              }
+          }
 
-    - name: Enable and start Nginx
-      ansible.builtin.service:
+    - name: Start Nginx
+      service:
         name: nginx
-        state: started
+        state: restarted
         enabled: yes
+
+    - name: Start chat app in background
+      shell: |
+        nohup node /home/ec2-user/app.js > /dev/null 2>&1 &

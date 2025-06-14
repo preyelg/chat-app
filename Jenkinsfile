@@ -24,8 +24,13 @@ pipeline {
 
     stage('Run Ansible Playbook') {
       steps {
-        echo '🚀 Running Ansible deployment...'
-        sh 'ANSIBLE_CONFIG=./ansible.cfg ansible-playbook -i inventory playbook.yml'
+        echo '🚀 Running Ansible deployment with injected SSH key...'
+        withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh', keyFileVariable: 'SSH_KEY')]) {
+          sh '''
+            ansible-playbook -i inventory playbook.yml \
+              --private-key $SSH_KEY
+          '''
+        }
       }
     }
   }
